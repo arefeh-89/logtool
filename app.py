@@ -1,13 +1,17 @@
-from flask import Flask, render_template, request, send_file
+import os
 import re
 from datetime import datetime
-import os
-from werkzeug.utils import secure_filename
 import tempfile
+from flask import Flask, render_template, request, send_file
+from werkzeug.utils import secure_filename
 
+# ------------------ تنظیم مسیر پوشه‌ی قالب‌ها ------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
-# ---------- توابع اصلی ----------
+TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+
+app = Flask(__name__, template_folder=TEMPLATES_DIR)
+
+# ------------------ توابع اصلی پردازش ------------------
 def save_matching_lines(input_files, search_text):
     all_lines = []
     for input_file in input_files:
@@ -45,7 +49,7 @@ def group_and_sort_logs(lines, key_pattern, output_path):
             if i < len(sorted_keys) - 1:
                 outfile.write('\n')
 
-# ---------- روت‌های Flask ----------
+# ------------------ مسیرها (Routes) ------------------
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -62,7 +66,6 @@ def index():
             f.save(file_path)
             file_paths.append(file_path)
 
-        # فاز پردازش
         all_lines = save_matching_lines(file_paths, search_text)
         output_file = os.path.join(temp_dir, "sorted.txt")
         group_and_sort_logs(all_lines, key_pattern, output_file)
@@ -71,5 +74,11 @@ def index():
 
     return render_template('index.html')
 
+# برای تست سریع در Render
+@app.route('/ping')
+def ping():
+    return "pong ✅ Flask is alive!"
+
+# ------------------ اجرای برنامه ------------------
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
