@@ -5,7 +5,7 @@ import os
 from werkzeug.utils import secure_filename
 import tempfile
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 
 # ---------- توابع اصلی ----------
 def save_matching_lines(input_files, search_text):
