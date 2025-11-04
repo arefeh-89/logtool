@@ -1,17 +1,13 @@
-import os
+from flask import Flask, render_template, request, send_file
 import re
 from datetime import datetime
-import tempfile
-from flask import Flask, render_template, request, send_file
+import os
 from werkzeug.utils import secure_filename
+import tempfile
 
-# ------------------ تنظیم مسیر پوشه‌ی قالب‌ها ------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+app = Flask(__name__)
 
-app = Flask(__name__, template_folder=TEMPLATES_DIR)
-
-# ------------------ توابع اصلی پردازش ------------------
+# ---------- توابع اصلی ----------
 def save_matching_lines(input_files, search_text):
     all_lines = []
     for input_file in input_files:
@@ -49,12 +45,20 @@ def group_and_sort_logs(lines, key_pattern, output_path):
             if i < len(sorted_keys) - 1:
                 outfile.write('\n')
 
-# ------------------ مسیرها (Routes) ------------------
+# ---------- روت‌های Flask ----------
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        search_text = request.form['search_text']
-        key_pattern = request.form['key_pattern']
+        search_select = request.form['search_select']
+        search_text = request.form.get('search_text', '').strip()
+
+        # انتخاب عبارت نهایی
+        if search_select == 'OTHER':
+            final_search_text = search_text
+        else:
+            final_search_text = search_select
+
+        key_pattern = request.form.get('key_pattern', '').strip()  # اختیاری
         uploaded_files = request.files.getlist('log_files')
 
         temp_dir = tempfile.mkdtemp()
@@ -66,19 +70,21 @@ def index():
             f.save(file_path)
             file_paths.append(file_path)
 
-        all_lines = save_matching_lines(file_paths, search_text)
-        output_file = os.path.join(temp_dir, "sorted.txt")
-        group_and_sort_logs(all_lines, key_pattern, output_file)
+        # مرحله استخراج
+        all_lines = save_matching_lines(file_paths, final_search_text)
+
+        # اگر عبارت مرتب‌سازی داده شده بود، مرتب‌سازی انجام بده
+        if key_pattern:
+            output_file = os.path.join(temp_dir, "sorted.txt")
+            group_and_sort_logs(all_lines, key_pattern, output_file)
+        else:
+            output_file = os.path.join(temp_dir, "filtered.txt")
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.writelines(all_lines)
 
         return send_file(output_file, as_attachment=True)
 
     return render_template('index.html')
 
-# برای تست سریع در Render
-@app.route('/ping')
-def ping():
-    return "pong ✅ Flask is alive!"
-
-# ------------------ اجرای برنامه ------------------
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(debug=True)
