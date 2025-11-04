@@ -1,90 +1,42 @@
 from flask import Flask, render_template, request, send_file
-import re
-from datetime import datetime
 import os
-from werkzeug.utils import secure_filename
 import tempfile
 
 app = Flask(__name__)
 
-# ---------- توابع اصلی ----------
-def save_matching_lines(input_files, search_text):
-    all_lines = []
-    for input_file in input_files:
-        with open(input_file, 'r', encoding='utf-8') as infile:
-            for line in infile:
-                if search_text in line:
-                    all_lines.append(line.rstrip() + '\n')
-    return all_lines
-
-def parse_time(value):
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return value
-
-def group_and_sort_logs(lines, key_pattern, output_path):
-    key_re = re.compile(rf"{re.escape(key_pattern)}(\d+)\b")
-    time_re = re.compile(r'"time":"([\d\-T:\+]+)"')
-    groups = {}
-
-    for line in lines:
-        key_match = key_re.search(line)
-        time_match = time_re.search(line)
-        if key_match:
-            key_value = key_match.group(1)
-            time_value = time_match.group(1) if time_match else "9999-99-99T99:99:99+00:00"
-            groups.setdefault(key_value, []).append((parse_time(time_value), line))
-
-    sorted_keys = sorted(groups.keys(), key=lambda x: int(x))
-
-    with open(output_path, 'w', encoding='utf-8') as outfile:
-        for i, key in enumerate(sorted_keys):
-            sorted_lines = sorted(groups[key], key=lambda x: x[0])
-            outfile.writelines([line for _, line in sorted_lines])
-            if i < len(sorted_keys) - 1:
-                outfile.write('\n')
-
-# ---------- روت‌های Flask ----------
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def index():
-    if request.method == 'POST':
-        search_select = request.form['search_select']
-        search_text = request.form.get('search_text', '').strip()
+    if request.method == "POST":
+        uploaded_files = request.files.getlist("log_files")
+        search_select = request.form.get("search_select")
+        search_text = request.form.get("search_text")
+        key_pattern = request.form.get("key_pattern", "").strip()
 
-        # انتخاب عبارت نهایی
-        if search_select == 'OTHER':
-            final_search_text = search_text
-        else:
-            final_search_text = search_select
+        # اگر کاربر گزینه OTHER رو انتخاب کرده بود، از فیلد دستی استفاده می‌کنیم
+        search_phrase = search_text if search_select == "OTHER" else search_select
 
-        key_pattern = request.form.get('key_pattern', '').strip()  # اختیاری
-        uploaded_files = request.files.getlist('log_files')
+        # مسیر موقت امن برای سرور
+        tmp_dir = tempfile.gettempdir()
+        output_path = os.path.join(tmp_dir, "processed_logs.txt")
 
-        temp_dir = tempfile.mkdtemp()
-        file_paths = []
+        # پردازش فایل‌ها
+        with open(output_path, "w", encoding="utf-8") as out_f:
+            for file in uploaded_files:
+                for line in file.read().decode("utf-8", errors="ignore").splitlines():
+                    if search_phrase in line:
+                        out_f.write(line + "\n")
 
-        for f in uploaded_files:
-            filename = secure_filename(f.filename)
-            file_path = os.path.join(temp_dir, filename)
-            f.save(file_path)
-            file_paths.append(file_path)
+        # برگردوندن فایل برای دانلود
+        return send_file(output_path, as_attachment=True, download_name="processed_logs.txt")
 
-        # مرحله استخراج
-        all_lines = save_matching_lines(file_paths, final_search_text)
+    # لیست عبارت‌های پیش‌فرض برای انتخاب
+    search_options = ["heraldEventID", "userID", "sessionToken", "errorCode"]
 
-        # اگر عبارت مرتب‌سازی داده شده بود، مرتب‌سازی انجام بده
-        if key_pattern:
-            output_file = os.path.join(temp_dir, "sorted.txt")
-            group_and_sort_logs(all_lines, key_pattern, output_file)
-        else:
-            output_file = os.path.join(temp_dir, "filtered.txt")
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.writelines(all_lines)
+    return render_template("index.html", search_options=search_options)
 
-        return send_file(output_file, as_attachment=True)
 
-    return render_template('index.html')
+import os
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))  # پورت از محیط Render گرفته میشه
+    app.run(host="0.0.0.0", port=port)
