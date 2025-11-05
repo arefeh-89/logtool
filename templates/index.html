@@ -1,84 +1,97 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>Log Tool</title>
+    <title>Log Processor</title>
     <style>
         body {
             font-family: sans-serif;
-            margin: 40px;
-            background-color: #f9f9f9;
+            direction: rtl;
+            background: #f9fafc;
+            text-align: center;
+            margin-top: 50px;
         }
         form {
             background: white;
-            padding: 25px;
+            display: inline-block;
+            padding: 20px 40px;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            max-width: 500px;
-            margin: auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        h2 {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        label {
-            font-weight: 600;
+        label, select, input, button {
             display: block;
-            margin-top: 15px;
-        }
-        input, select, button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 8px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            box-sizing: border-box;
+            margin: 10px auto;
         }
         button {
-            background-color: #0066cc;
+            background: #2563eb;
             color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 6px;
             cursor: pointer;
-            margin-top: 25px;
         }
         button:hover {
-            background-color: #004c99;
+            background: #1e40af;
+        }
+
+        /* لودینگ */
+        #loading {
+            display: none;
+            margin-top: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <form method="POST" enctype="multipart/form-data">
-        <h2>Log Processing Tool</h2>
-
-        <label for="log_files">Select log files:</label>
+    <h2>🧩 ابزار استخراج لاگ</h2>
+    <form id="logForm" method="post" enctype="multipart/form-data">
+        <label>فایل(های) لاگ را انتخاب کنید:</label>
         <input type="file" name="log_files" multiple required>
 
-        <label for="search_select">Search phrase:</label>
-        <select id="search_select" name="search_select" onchange="toggleCustomInput()">
-            <option value="ERROR">ERROR</option>
-            <option value="heraldEventID">heraldEventID</option>
-            <option value="OTHER">Other (custom)</option>
+        <label>عبارت مورد جست‌وجو:</label>
+        <select name="search_select" id="search_select" required>
+            {% for option in search_options %}
+                <option value="{{ option }}">{{ option }}</option>
+            {% endfor %}
+            <option value="OTHER">عبارت دیگر...</option>
         </select>
 
-        <input type="text" id="search_text" name="search_text" placeholder="Enter custom search" style="display:none;">
+        <input type="text" name="search_text" id="search_text" placeholder="عبارت دلخواه را وارد کنید" style="display:none;">
 
-        <label for="key_pattern">Sort key (optional):</label>
-        <input type="text" id="key_pattern" name="key_pattern" placeholder="e.g. requestId">
+        <label>عبارت مرتب‌سازی (اختیاری):</label>
+        <input type="text" name="key_pattern" placeholder="مثلاً timestamp یا userID">
 
-        <button type="submit">Process Logs</button>
+        <button type="submit">شروع پردازش</button>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>در حال پردازش فایل‌ها...</p>
+        </div>
     </form>
 
     <script>
-        function toggleCustomInput() {
-            const select = document.getElementById('search_select');
-            const input = document.getElementById('search_text');
-            if (select.value === 'OTHER') {
-                input.style.display = 'block';
-                input.required = true;
-            } else {
-                input.style.display = 'none';
-                input.required = false;
-            }
-        }
+        // نمایش فیلد دستی در صورت انتخاب OTHER
+        document.getElementById("search_select").addEventListener("change", function() {
+            const txt = document.getElementById("search_text");
+            txt.style.display = this.value === "OTHER" ? "block" : "none";
+        });
+
+        // نمایش انیمیشن هنگام ارسال فرم
+        document.getElementById("logForm").addEventListener("submit", function() {
+            document.getElementById("loading").style.display = "block";
+        });
     </script>
 </body>
 </html>
